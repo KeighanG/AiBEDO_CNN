@@ -1,0 +1,106 @@
+#GPU Accelerated Deep Learning with TensorFlow on Rubin
+
+Keighan Gemmell, keighan.gemmell@gmail.com, July 15, 2022
+
+---------
+
+1. From terminal, create a python virtual environment and activate it:
+
+    conda create --name tf_gpu
+    
+    conda activate tf_gpu
+
+
+2. Install CUDA, cuDNN 
+    
+    conda install -c conda-forge cudatoolkit=11.2 cudnn=8.1.0
+    (at the time of writing this CUDA version 11.2 is supported by TensorFlow, but this is subject to change)
+
+3. Check the installation of CUDA and cuDNN with the following commands (copy and paste):
+
+    For CUDA:
+    function lib_installed() { /sbin/ldconfig -N -v $(sed 's/:/ /' <<< $LD_LIBRARY_PATH) 2>/dev/null | grep $1; }
+    function check() { lib_installed $1 && echo "$1 is installed" || echo "ERROR: $1 is NOT installed"; }
+    check libcuda
+    check libcudart
+    
+    For cuDNN: 
+    function lib_installed() { /sbin/ldconfig -N -v $(sed 's/:/ /' <<< $LD_LIBRARY_PATH) 2>/dev/null | grep $1; }
+    function check() { lib_installed $1 && echo "$1 is installed" || echo "ERROR: $1 is NOT installed"; }
+    check libcudnn 
+    
+    
+4. If either one of the above commands returns an error, stop and find the source of the problem as you cannot continue until both are installed (cuDNN was installed on Rubin by Ed on July 15th, 2022 and should be there in the future).
+
+
+5. Check NVIDIA driver using this command:
+
+    nvidia-smi
+    
+    - CUDA version should be 11.2 (or whatever is compatable with TensorFlow at the time you are using this guide). 
+    
+
+6. Automatically configure systems path with these two commands:
+
+    mkdir -p $CONDA_PREFIX/etc/conda/activate.d
+    echo 'export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$CONDA_PREFIX/lib/' > $CONDA_PREFIX/etc/conda/activate.d/env_vars.sh
+    
+
+7. Install packages:
+
+    conda install -c conda-forge numpy xarray dask netCDF4 bottleneck cartopy cftime xesmf tensorflow tensorflow-gpu scikit-learn
+   
+   
+8. Install all other desired packages to the virtual environment 
+
+
+9. Connect to JupyterHub (steps can be found here: 'https://venus.seos.uvic.ca/mediawiki/index.php/JupyterHub') 
+
+    conda install ipykernel
+    
+    ipython kernel install --user --name='Name for Web interface'
+    
+    
+10. Open Jupyter notebook on Rubin and select the 'tf_gpu' environment
+
+
+11. Import required packages and run: 
+
+    from tensorflow.python.client import device_lib
+    device_lib.list_local_devices()
+    
+    - output should be details of the Rubin CPU and GPU if done correctly
+    
+    
+12. Check that TensorFlow is recognizing the GPU, and that it is available by running:
+
+    print("Num GPUs Available: ", len(tf.config.list_physical_devices('GPU')))
+    
+    - If the output is 1, you're all set
+    - If the output is 0, something went wrong in one of the previous steps
+    
+
+13. You should now be able to run on the GPU! 
+
+
+
+
+A few important notes/issues I ran into that might save you a headache: 
+
+- If you get some weird package dependancy issues with xarray/numpy (like I did) try uninstalling numpy, installing setuptools      then re-installing numpy. This worked for me. 
+
+- If when you run the command in step 11: device_lib.list_local_devices() the output shows 'XLA_GPU' or 'XLA_CPU' this means you are using CUDA without cuDNN. Go back and make sure your cuDNN installation was successful. 
+
+- TensorFlow loves to use the entire memory of the GPU. If you are doing k-fold cross validation on your model it will use all of the memory on the first iteration of the validation. To prevent memory leaks in the back propagation, run the following two lines at the end of your for loop (still inside the for loop) in the validation step.
+
+    gc.collect()
+    K.clear_session()
+
+    
+ 
+    
+    
+    
+    
+    
+    
